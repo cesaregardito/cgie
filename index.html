@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulatore ticket CGIE Regno Unito</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E7ECEF; --sheet:#F7F9FA; --ink:#1C2B39; --muted:#5C6B78; --line:#C3CDD5;
+  --stamp:#B8333B; --elect:#1F7A5A; --drop:#D6E4EE;
+  --font-num:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --font-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#141B22; --sheet:#1C252E; --ink:#E4EAEF; --muted:#94A3B0; --line:#33414E;
+    --stamp:#E0626A; --elect:#4CC59A; --drop:#24394A;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141B22; --sheet:#1C252E; --ink:#E4EAEF; --muted:#94A3B0; --line:#33414E;
+  --stamp:#E0626A; --elect:#4CC59A; --drop:#24394A;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.45}
+.wrap{max-width:1100px;margin:0 auto;padding:28px 20px 60px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;border-bottom:3px solid var(--ink);padding-bottom:14px;margin-bottom:22px}
+h1{font-family:var(--font-num);font-weight:700;font-size:clamp(30px,5vw,46px);line-height:1;margin:0;letter-spacing:.01em}
+h1 small{display:block;font-family:var(--font-body);font-weight:400;font-size:16px;color:var(--muted);margin-top:8px;letter-spacing:0}
+.totals{display:flex;gap:22px;font-family:var(--font-num)}
+.totals div{text-align:right}
+.totals b{display:block;font-size:30px;line-height:1;font-weight:600}
+.totals span{font-size:15px;color:var(--muted)}
+h2{font-family:var(--font-num);font-weight:600;font-size:24px;margin:0 0 10px}
+.hint{color:var(--muted);font-size:14.5px;margin:-4px 0 12px;max-width:70ch}
+section{margin-bottom:30px}
+
+/* form */
+.add{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+input{font:inherit;color:var(--ink);background:var(--sheet);border:1.5px solid var(--line);border-radius:4px;padding:8px 10px;min-width:0}
+input:focus-visible,button:focus-visible,.chip:focus-visible{outline:3px solid var(--stamp);outline-offset:2px}
+.add input[name=name]{flex:1 1 180px}
+.add input[name=votes]{flex:0 1 120px}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:4px;padding:8px 14px;border:1.5px solid var(--ink);background:var(--ink);color:var(--sheet)}
+button.ghost{background:transparent;color:var(--ink)}
+button.danger{background:transparent;color:var(--stamp);border-color:var(--stamp)}
+button:disabled{opacity:.4;cursor:default}
+
+/* pool & chips */
+.zone{background:var(--sheet);border:1.5px dashed var(--line);border-radius:6px;padding:10px;min-height:66px;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start;transition:background .12s,border-color .12s}
+.zone.over{background:var(--drop);border-color:var(--ink)}
+.zone.full{border-style:solid}
+.zone .empty{color:var(--muted);font-size:14.5px;align-self:center;padding:4px 6px}
+.chip{--c:#888;position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  min-width:110px;height:44px;padding:0 12px;border-radius:3px;background:var(--c);color:#fff;
+  cursor:grab;user-select:none;touch-action:none;font-weight:600;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.chip .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip .v{font-family:var(--font-num);font-size:22px;font-weight:600}
+.chip.sel{outline:3px solid var(--ink);outline-offset:2px}
+.chip.dragging{opacity:.3}
+.ghostchip{position:fixed;pointer-events:none;z-index:50;transform:rotate(-2deg);box-shadow:0 8px 20px rgba(0,0,0,.25);opacity:.95}
+
+.editor{display:none;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding:10px;border-left:4px solid var(--c,var(--ink));background:var(--sheet)}
+.editor.on{display:flex}
+.editor input[data-f=name]{flex:1 1 160px}
+.editor input[data-f=votes]{flex:0 1 110px}
+.editor .moveto{font-size:14px;color:var(--muted);width:100%}
+
+/* tickets */
+.tickets{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.ticket{border:2px solid var(--ink);border-radius:6px;background:var(--sheet);overflow:hidden}
+.ticket .th{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1.5px solid var(--line)}
+.ticket .th strong{font-family:var(--font-num);font-size:21px;font-weight:600}
+.ticket .th .x{border:none;background:none;color:var(--muted);padding:2px 6px;font-size:20px;line-height:1}
+.ticket .zone{border:none;border-radius:0;flex-direction:column;flex-wrap:nowrap;min-height:170px}
+.ticket .zone .chip{width:100%}
+.slot{height:44px;border:1.5px dashed var(--line);border-radius:3px}
+.ticket .tf{padding:8px 10px;border-top:1.5px solid var(--line);font-size:14px;color:var(--muted);min-height:38px}
+.ticket .tf b{color:var(--ink);font-family:var(--font-num);font-size:17px;font-weight:600}
+
+
+/* scatole elettori: una riga per scatola */
+.boxes{display:flex;flex-direction:column;border:2px solid var(--ink);border-radius:6px;background:var(--sheet)}
+.box{display:grid;grid-template-columns:230px minmax(0,1fr);gap:6px 14px;align-items:start;padding:12px 14px;border-bottom:1.5px solid var(--line)}
+.box:last-child{border-bottom:none}
+.box .bh{display:flex;flex-direction:column;gap:2px;min-width:0;grid-row:span 2}
+.box .bh strong{font-family:var(--font-num);font-size:20px;font-weight:600;line-height:1.1}
+.box .bh span{font-family:var(--font-num);font-size:16px;color:var(--muted)}
+.grid{display:flex;flex-wrap:wrap;gap:4px;touch-action:none;user-select:none;min-width:0}
+.seat{flex:0 0 32px;width:32px;height:32px;min-width:0;padding:0;margin:0;border:1.5px dashed var(--line);border-radius:3px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-num);font-weight:700;font-size:14px;line-height:1;color:#fff;cursor:pointer;background:transparent;overflow:hidden}
+.seat.f{border:1.5px solid transparent;background:var(--c);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2)}
+.box .bs{grid-column:2;font-size:13.5px;color:var(--muted);min-height:18px}
+.box .bs b{color:var(--ink);font-weight:600}
+@media (max-width:640px){
+  .box{grid-template-columns:minmax(0,1fr)}
+  .box .bh{flex-direction:row;justify-content:space-between;align-items:baseline}
+  .box .bs{grid-column:1}
+  .box .bh{grid-row:auto}
+  .seat{flex-basis:28px;width:28px;height:28px;font-size:13px}
+}
+.brush{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:14.5px;color:var(--muted)}
+.brush .sw{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:3px;font-weight:600;color:#fff;background:var(--c)}
+.brush .sw.none{background:transparent;color:var(--muted);border:1.5px dashed var(--line)}
+
+.costrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px;padding:10px 12px;background:var(--sheet);border-left:4px solid var(--ink);font-size:14.5px}
+.costrow label{font-weight:600}
+.costrow input{width:80px}
+.costrow span{color:var(--muted)}
+/* results */
+.res{background:var(--sheet);border:2px solid var(--ink);border-radius:6px;padding:16px}
+.row{display:grid;grid-template-columns:28px minmax(80px,150px) 1fr 64px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.row .pos{font-family:var(--font-num);font-size:20px;color:var(--muted);text-align:right}
+.row .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .nm em{display:block;font-style:normal;font-weight:400;font-size:13px;color:var(--muted)}
+.row .tot{font-family:var(--font-num);font-size:24px;font-weight:600;text-align:right}
+.bar{height:22px;position:relative;background:transparent}
+.bar i{position:absolute;top:0;bottom:0;left:0}
+.bar .own{background:var(--c)}
+.bar .rec{background:repeating-linear-gradient(135deg,var(--c) 0 5px,transparent 5px 9px);border:1.5px solid var(--c);border-left:none}
+.row.el .pos{color:var(--elect)}
+.row.el .nm::after{content:"eletto";display:inline-block;margin-left:8px;font-size:12px;font-weight:700;color:#fff;background:var(--elect);padding:1px 7px;border-radius:2px;vertical-align:2px}
+.row.tie .nm::after{content:"parità";display:inline-block;margin-left:8px;font-size:12px;font-weight:700;color:#fff;background:var(--stamp);padding:1px 7px;border-radius:2px;vertical-align:2px}
+.cut{border-bottom:3px solid var(--ink)!important}
+.legend{display:flex;flex-wrap:wrap;gap:18px;font-size:14px;color:var(--muted);margin-top:12px}
+.legend span::before{content:"";display:inline-block;width:16px;height:12px;margin-right:6px;vertical-align:-1px;background:var(--muted)}
+.legend .l2::before{background:repeating-linear-gradient(135deg,var(--muted) 0 4px,transparent 4px 7px);border:1px solid var(--muted)}
+.note{margin-top:14px;font-size:14.5px;color:var(--muted);max-width:75ch}
+.note b{color:var(--stamp)}
+.scroll{overflow-x:auto}
+@media (max-width:560px){
+  .row{grid-template-columns:22px 92px 1fr 50px;gap:7px}
+  .row .tot{font-size:20px}
+  .totals{gap:14px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Simulatore ticket CGIE<small>Regno Unito: 3 seggi, 54 elettori, due preferenze ciascuno</small></h1>
+    <div class="totals">
+      <div><b id="tVoters">0</b><span>elettori assegnati</span></div>
+      <div><b id="tPrefs">0</b><span>preferenze valide</span></div>
+      <div><b id="tLost">0</b><span>preferenze perse</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Candidati</h2>
+    <p class="hint">Il peso di ogni candidato è il numero di caselle che gli assegni nella sezione Elettori. Trascina i rettangoli nei ticket, oppure toccane uno per selezionarlo. Chi resta qui corre da solo e perde la seconda preferenza dei suoi elettori.</p>
+    <form class="add" id="addForm" autocomplete="off">
+      <input name="name" placeholder="Nome candidato" aria-label="Nome candidato" required maxlength="30">
+      <button type="submit">Aggiungi candidato</button>
+    </form>
+    <div class="zone" id="pool" data-zone="pool"></div>
+    <div class="editor" id="editor">
+      <input data-f="name" aria-label="Nome" maxlength="30">
+      <button class="danger" type="button" id="delBtn">Elimina</button>
+      <button class="ghost" type="button" id="closeEd">Chiudi</button>
+      <div class="moveto">Tocca le caselle per assegnarle a questo candidato, oppure tocca un ticket per spostarlo lì.</div>
+    </div>
+  </section>
+
+  <section>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <h2 style="margin:0">Ticket</h2>
+      <div style="display:flex;gap:8px">
+        <button class="ghost" type="button" id="resetBtn">Svuota ticket</button>
+        <button type="button" id="addTicket">Nuovo ticket</button>
+      </div>
+    </div>
+    <p class="hint">Massimo tre candidati per ticket. Gli elettori votano sempre il proprio candidato; nei ticket da tre gli elettori del terzo danno la seconda preferenza ai due più forti, che in cambio gli cedono ciascuno un certo numero di voti (il costo d'ingresso).</p>
+    <div class="costrow">
+      <label for="cost">Costo d'ingresso del terzo: voti ceduti da <em>ciascuno</em> dei due più forti</label>
+      <input id="cost" type="number" min="0" step="1" inputmode="numeric">
+      <span id="costEx"></span>
+    </div>
+    <div class="tickets" id="tickets"></div>
+  </section>
+
+  <section>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <h2 style="margin:0">Elettori</h2>
+      <button class="ghost" type="button" id="clearSeats">Svuota caselle</button>
+    </div>
+    <div class="brush" id="brush"></div>
+    <div class="boxes" id="boxes"></div>
+  </section>
+
+  <section>
+    <h2>Risultato</h2>
+    <div class="res">
+      <div class="scroll"><div id="results"></div></div>
+      <div class="legend"><span>voti propri (prima preferenza)</span><span class="l2">seconde preferenze ricevute</span></div>
+      <div class="note" id="note"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const COLORS=["#2E5E8C","#B8333B","#2F7D5B","#8A5A1E","#6B4C9A","#1F7F8C","#A63F7A","#5B6B2E","#C2621A","#3D4F9E","#7A3E3E","#4A7A2A"];
+const KEY="sim-ticket-cgie-v1";
+const BOXES=[["lon","Comites Londra",18],["man","Comites Manchester",18],["sco","Comites Scozia e NI",12],["ass","Associazioni",6]];
+function defaults(){
+  const cands=["Rossi","Bianchi","Verdi","Neri","Galli","Conti"].map((n,i)=>({id:"c"+i,name:n,color:COLORS[i]}));
+  const fill=(arr,n)=>{const s=[];arr.forEach(([id,k])=>{for(let i=0;i<k;i++)s.push(id)});while(s.length<n)s.push(null);return s};
+  const pre={lon:[["c0",7],["c1",6],["c4",5]],man:[["c2",8],["c3",6],["c5",4]],sco:[["c1",5],["c3",4],["c0",3]],ass:[["c4",3],["c5",2],["c2",1]]};
+  return {
+    cands,
+    boxes:BOXES.map(([id,name,size])=>({id,name,size,slots:fill(pre[id],size)})),
+    tickets:[{id:"t1",members:[]},{id:"t2",members:[]}],
+    seq:10
+  };
+}
+let state=load()||defaults();
+let selected=null;
+
+function load(){try{const s=localStorage.getItem(KEY);return s?JSON.parse(s):null}catch(e){return null}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
+const $=s=>document.querySelector(s);
+const cand=id=>state.cands.find(c=>c.id===id);
+const ticketOf=id=>state.tickets.find(t=>t.members.includes(id));
+const fmt=n=>Math.round(n).toLocaleString("it-IT");
+const weight=id=>state.boxes.reduce((a,b)=>a+b.slots.filter(s=>s===id).length,0);
+const initials=n=>n.trim().slice(0,2);
+function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+
+/* ---------- calcolo ---------- */
+function allocate(ws){
+  // Ticket da 1: solo i voti propri. Ticket da 2: entrambi a+b.
+  // Ticket da 3: gli elettori del terzo danno la seconda preferenza ai due big (metà ciascuno);
+  // ciascun big "paga" k voti al terzo. Big = a+b+c/2-k, terzo = c+2k.
+  const n=ws.length;
+  if(n<=1) return ws.slice();
+  if(n===2){const s=ws[0]+ws[1];return [s,s]}
+  const idx=ws.map((w,i)=>i).sort((x,y)=>ws[y]-ws[x]||x-y);
+  const [i1,i2,i3]=idx;
+  const a=ws[i1], b=ws[i2], c=ws[i3];
+  const k=Math.min(Math.max(0,Math.floor(Number(state.cost??1)||0)), Math.floor(c/2));
+  const toBig=c; // seconde preferenze degli elettori del terzo
+  const out=[];
+  out[i1]=a+b+Math.ceil(toBig/2)-k;
+  out[i2]=a+b+Math.floor(toBig/2)-k;
+  out[i3]=c+2*k;
+  return out;
+}
+function compute(){
+  const out=[]; let lost=0;
+  const inTicket=new Set();
+  state.tickets.forEach((t,ti)=>{
+    const ms=t.members.map(cand).filter(Boolean);
+    const ws=ms.map(c=>weight(c.id));
+    const fin=allocate(ws);
+    if(ms.length===1) lost+=ws[0];
+    ms.forEach((c,i)=>{inTicket.add(c.id);out.push({c,own:ws[i],fin:fin[i],ticket:ms.length>1?ti+1:null})});
+  });
+  state.cands.forEach(c=>{if(!inTicket.has(c.id)){const w=weight(c.id);lost+=w;out.push({c,own:w,fin:w,ticket:null})}});
+  out.sort((a,b)=>b.fin-a.fin||b.own-a.own);
+  return {rows:out,lost};
+}
+
+/* ---------- render ---------- */
+function chipEl(c){
+  const w=weight(c.id);
+  const d=document.createElement("div");
+  d.className="chip"+(selected===c.id?" sel":"");
+  d.style.setProperty("--c",c.color);
+  d.dataset.id=c.id; d.tabIndex=0;
+  d.setAttribute("role","button");
+  d.setAttribute("aria-label",c.name+", "+w+" elettori");
+  d.innerHTML=`<span class="n"></span><span class="v"></span>`;
+  d.querySelector(".n").textContent=c.name;
+  d.querySelector(".v").textContent=fmt(w);
+  return d;
+}
+function renderBoxes(){
+  const bw=$("#boxes"); bw.innerHTML="";
+  state.boxes.forEach(b=>{
+    const el=document.createElement("div"); el.className="box";
+    const used=b.slots.filter(Boolean).length;
+    el.innerHTML=`<div class="bh"><strong></strong><span>${used}/${b.size}</span></div>`;
+    el.querySelector("strong").textContent=b.name;
+    const g=document.createElement("div"); g.className="grid";
+    b.slots.forEach((s,i)=>{
+      const c=s&&cand(s);
+      const d=document.createElement("button"); d.type="button";
+      d.className="seat"+(c?" f":""); d.dataset.box=b.id; d.dataset.i=i;
+      if(c){d.style.setProperty("--c",c.color);d.textContent=initials(c.name)}
+      d.setAttribute("aria-label",`${b.name}, casella ${i+1}: ${c?c.name:"libera"}`);
+      g.appendChild(d);
+    });
+    el.appendChild(g);
+    const counts={}; b.slots.forEach(s=>{if(s)counts[s]=(counts[s]||0)+1});
+    const parts=Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([id,n])=>`${escapeHtml(cand(id)?.name||"?")} <b>${n}</b>`);
+    if(used<b.size) parts.push(`libere <b>${b.size-used}</b>`);
+    const bs=document.createElement("div"); bs.className="bs"; bs.innerHTML=parts.join(", ");
+    el.appendChild(bs);
+    bw.appendChild(el);
+  });
+  const br=$("#brush");
+  const c=selected&&cand(selected);
+  br.innerHTML=c?`Stai assegnando caselle a <span class="sw" style="--c:${c.color}"></span>. Tocca una casella sua per liberarla.`
+               :`Seleziona un candidato toccandolo, poi tocca o trascina sulle caselle per assegnargliele.`;
+  if(c) br.querySelector(".sw").textContent=c.name;
+}
+var render=function(){
+  const pool=$("#pool"); pool.innerHTML="";
+  const free=state.cands.filter(c=>!ticketOf(c.id));
+  const maxV=Math.max(1,...state.cands.map(c=>weight(c.id)));
+  free.forEach(c=>{const el=chipEl(c);el.style.width=`calc(110px + ${Math.round(weight(c.id)/maxV*140)}px)`;pool.appendChild(el)});
+  if(!state.cands.length) pool.innerHTML=`<span class="empty">Aggiungi un candidato per iniziare.</span>`;
+  else if(!free.length) pool.innerHTML=`<span class="empty">Tutti i candidati sono in un ticket. Trascinali qui per toglierli.</span>`;
+
+  renderBoxes();
+  const {rows,lost}=compute();
+  const finById=Object.fromEntries(rows.map(r=>[r.c.id,r.fin]));
+
+  const tw=$("#tickets"); tw.innerHTML="";
+  state.tickets.forEach((t,ti)=>{
+    const box=document.createElement("div"); box.className="ticket";
+    const ms=t.members.map(cand).filter(Boolean);
+    const W=ms.reduce((a,c)=>a+weight(c.id),0);
+    box.innerHTML=`<div class="th"><strong>Ticket ${ti+1}</strong><button class="x" type="button" aria-label="Elimina ticket ${ti+1}" data-del="${t.id}">×</button></div>`;
+    const z=document.createElement("div"); z.className="zone"+(ms.length>=3?" full":""); z.dataset.zone=t.id;
+    ms.forEach(c=>z.appendChild(chipEl(c)));
+    for(let i=ms.length;i<3;i++){const s=document.createElement("div");s.className="slot";z.appendChild(s)}
+    box.appendChild(z);
+    const f=document.createElement("div"); f.className="tf";
+    if(ms.length===0) f.textContent="Vuoto";
+    else if(ms.length===1) f.innerHTML=`Da solo: la seconda preferenza dei suoi <b>${fmt(W)}</b> elettori va persa`;
+    else f.innerHTML=`<b>${fmt(W)}</b> elettori, <b>${fmt(2*W)}</b> preferenze: `+ms.map(c=>`${escapeHtml(c.name)} <b>${fmt(finById[c.id])}</b>`).join(", ");
+    box.appendChild(f);
+    tw.appendChild(box);
+  });
+
+  const W=state.cands.reduce((a,c)=>a+weight(c.id),0);
+  const tot=state.boxes.reduce((a,b)=>a+b.size,0);
+  $("#tVoters").textContent=`${fmt(W)}/${tot}`;
+  $("#tPrefs").textContent=fmt(2*W-lost);
+  $("#tLost").textContent=fmt(lost);
+
+  const res=$("#results"); res.innerHTML="";
+  if(!rows.length){res.innerHTML=`<p class="hint" style="margin:0">Aggiungi almeno un candidato per vedere il risultato.</p>`;$("#note").textContent="";save();return}
+  const top=Math.max(1,rows[0].fin);
+  const third=rows.length>=3?rows[2].fin:null;
+  const fourth=rows.length>=4?rows[3].fin:null;
+  const tieAtCut=third!==null&&fourth!==null&&third===fourth;
+  rows.forEach((r,i)=>{
+    const row=document.createElement("div");
+    let cls="row";
+    if(tieAtCut&&r.fin===third) cls+=" tie";
+    else if(i<3) cls+=" el";
+    if(i===2&&rows.length>3) cls+=" cut";
+    row.className=cls;
+    row.style.setProperty("--c",r.c.color);
+    const ownP=r.own/top*100, finP=r.fin/top*100;
+    const sub=r.ticket?`ticket ${r.ticket}, +${fmt(r.fin-r.own)} ricevuti`:"da solo";
+    row.innerHTML=`<div class="pos">${i+1}</div><div class="nm"></div>
+      <div class="bar"><i class="own" style="width:${Math.min(ownP,finP)}%"></i>${r.fin>r.own?`<i class="rec" style="left:${ownP}%;width:${finP-ownP}%"></i>`:""}</div>
+      <div class="tot">${fmt(r.fin)}</div>`;
+    const nm=row.querySelector(".nm"); nm.textContent=r.c.name;
+    const em=document.createElement("em"); em.textContent=sub; nm.appendChild(em);
+    res.appendChild(row);
+  });
+  let note="";
+  if(tieAtCut){
+    const n=rows.filter(r=>r.fin===third).length;
+    note=`<b>Parità per l'ultimo seggio:</b> ${n} candidati a ${fmt(third)} voti. Serve un criterio di spareggio.`;
+  } else if(rows.length>3){
+    note=`Ultimo eletto con ${fmt(third)} voti, primo dei non eletti a ${fmt(fourth)}: scarto di ${fmt(third-fourth)}.`;
+  } else note=`Ci sono ${rows.length} candidati per 3 seggi: sono tutti eletti.`;
+  if(W<tot) note+=` Le ${tot-W} caselle libere non sono conteggiate.`;
+  $("#note").innerHTML=note;
+  save();
+}
+
+/* ---------- azioni ---------- */
+function moveTo(id,zone){
+  const cur=ticketOf(id);
+  if(zone==="pool"){ if(cur) cur.members=cur.members.filter(m=>m!==id); return true }
+  const t=state.tickets.find(t=>t.id===zone); if(!t) return false;
+  if(cur===t) return true;
+  if(t.members.length>=3) return false;
+  if(cur) cur.members=cur.members.filter(m=>m!==id);
+  t.members.push(id); return true;
+}
+function select(id){
+  selected=id;
+  const ed=$("#editor");
+  if(!id){ed.classList.remove("on");render();return}
+  const c=cand(id);
+  ed.classList.add("on"); ed.style.setProperty("--c",c.color);
+  ed.querySelector("[data-f=name]").value=c.name;
+  render();
+}
+
+$("#addForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const f=e.target, name=f.name.value.trim();
+  if(!name) return;
+  const id="c"+(state.seq++);
+  const used=new Set(state.cands.map(c=>c.color));
+  const color=COLORS.find(c=>!used.has(c))||COLORS[state.cands.length%COLORS.length];
+  state.cands.push({id,name,color});
+  f.reset(); select(id); f.name.focus();
+});
+$("#editor").addEventListener("input",e=>{
+  const c=cand(selected); if(!c) return;
+  if(e.target.dataset.f==="name"){c.name=e.target.value.trim()||c.name}
+  render();
+});
+$("#delBtn").onclick=()=>{
+  const id=selected; const t=ticketOf(id); if(t) t.members=t.members.filter(m=>m!==id);
+  state.boxes.forEach(b=>b.slots=b.slots.map(s=>s===id?null:s));
+  state.cands=state.cands.filter(c=>c.id!==id); select(null);
+};
+$("#closeEd").onclick=()=>select(null);
+$("#addTicket").onclick=()=>{state.tickets.push({id:"t"+(state.seq++),members:[]});render()};
+$("#resetBtn").onclick=()=>{state.tickets.forEach(t=>t.members=[]);render()};
+$("#clearSeats").onclick=()=>{state.boxes.forEach(b=>b.slots=b.slots.map(()=>null));render()};
+$("#tickets").addEventListener("click",e=>{
+  const d=e.target.closest("[data-del]"); if(!d) return;
+  state.tickets=state.tickets.filter(t=>t.id!==d.dataset.del); render();
+});
+document.addEventListener("click",e=>{
+  if(!selected||e.target.closest(".chip")||e.target.closest("button")) return;
+  const z=e.target.closest(".zone"); if(!z) return;
+  if(moveTo(selected,z.dataset.zone)) render();
+});
+document.addEventListener("keydown",e=>{
+  const ch=e.target.closest&&e.target.closest(".chip");
+  if(ch&&(e.key==="Enter"||e.key===" ")){e.preventDefault();select(selected===ch.dataset.id?null:ch.dataset.id)}
+  const st=e.target.closest&&e.target.closest(".seat");
+  if(st&&(e.key==="Enter"||e.key===" ")){e.preventDefault();paintStart(st);paint=null;render()}
+});
+
+/* ---------- pittura caselle ---------- */
+let paint=null;
+function setSeat(el,val){
+  const b=state.boxes.find(b=>b.id===el.dataset.box); const i=+el.dataset.i;
+  if(b.slots[i]===val) return;
+  b.slots[i]=val;
+  const c=val&&cand(val);
+  el.className="seat"+(c?" f":"");
+  if(c){el.style.setProperty("--c",c.color);el.textContent=initials(c.name)}else{el.textContent=""}
+}
+function paintStart(el){
+  if(!selected){const br=$("#brush");br.animate?.([{opacity:.3},{opacity:1}],{duration:400});return}
+  const b=state.boxes.find(b=>b.id===el.dataset.box);
+  const val=b.slots[+el.dataset.i]===selected?null:selected;
+  paint={val}; setSeat(el,val);
+}
+document.addEventListener("pointerdown",e=>{
+  const st=e.target.closest(".seat");
+  if(st&&e.button<=0){e.preventDefault();paintStart(st);return}
+});
+document.addEventListener("pointermove",e=>{
+  if(!paint) return;
+  const st=document.elementFromPoint(e.clientX,e.clientY)?.closest(".seat");
+  if(st) setSeat(st,paint.val);
+});
+function endPaint(){ if(paint){paint=null;render()} }
+
+/* ---------- drag dei candidati ---------- */
+let drag=null;
+document.addEventListener("pointerdown",e=>{
+  const ch=e.target.closest(".chip"); if(!ch||e.button>0) return;
+  drag={id:ch.dataset.id,el:ch,x0:e.clientX,y0:e.clientY,ghost:null,over:null,dx:e.clientX-ch.getBoundingClientRect().left,dy:e.clientY-ch.getBoundingClientRect().top};
+});
+document.addEventListener("pointermove",e=>{
+  if(!drag) return;
+  if(!drag.ghost){
+    if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)<6) return;
+    const r=drag.el.getBoundingClientRect();
+    const g=drag.el.cloneNode(true); g.classList.add("ghostchip"); g.classList.remove("sel");
+    g.style.width=r.width+"px"; document.body.appendChild(g);
+    drag.ghost=g; drag.el.classList.add("dragging");
+  }
+  drag.ghost.style.left=(e.clientX-drag.dx)+"px";
+  drag.ghost.style.top=(e.clientY-drag.dy)+"px";
+  const z=document.elementFromPoint(e.clientX,e.clientY)?.closest(".zone");
+  if(drag.over&&drag.over!==z) drag.over.classList.remove("over");
+  if(z){z.classList.add("over")} drag.over=z;
+});
+function endDrag(cancel){
+  if(!drag) return;
+  const d=drag; drag=null;
+  if(d.ghost){
+    d.ghost.remove(); d.el.classList.remove("dragging");
+    if(d.over) d.over.classList.remove("over");
+    if(!cancel&&d.over){
+      if(!moveTo(d.id,d.over.dataset.zone)){d.over.animate?.([{transform:"translateX(-4px)"},{transform:"translateX(4px)"},{transform:"none"}],{duration:200})}
+    }
+    render();
+  } else if(!cancel){
+    select(selected===d.id?null:d.id);
+  }
+}
+document.addEventListener("pointerup",()=>{endPaint();endDrag(false)});
+document.addEventListener("pointercancel",()=>{endPaint();endDrag(true)});
+
+const costIn=$("#cost");
+if(state.cost==null) state.cost=1;
+costIn.value=state.cost;
+costIn.addEventListener("input",()=>{state.cost=Math.max(0,Math.floor(Number(costIn.value)||0));render()});
+const _render=render;
+render=function(){
+  const k=state.cost;
+  $("#costEx").textContent=`Esempio 10-8-4 → ${allocate([10,8,4]).join("-")}. Il costo massimo è metà dei voti del terzo.`;
+  _render();
+};
+render();
+</script>
+</body>
+</html>
