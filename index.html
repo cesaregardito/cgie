@@ -146,6 +146,9 @@ button:disabled{opacity:.4;cursor:default}
   .totals{gap:14px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.quote{margin:0 0 26px;padding:6px 0 6px 18px;border-left:4px solid var(--stamp);
+  font-style:italic;font-size:clamp(17px,2.4vw,21px);line-height:1.5;color:var(--ink);max-width:60ch}
+.quote cite{display:block;margin-top:6px;font-style:normal;font-size:14px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -158,6 +161,13 @@ button:disabled{opacity:.4;cursor:default}
       <div><b id="tLost">0</b><span>preferenze perse</span></div>
     </div>
   </header>
+
+  <!-- CITAZIONE: sostituisci PRIMA RIGA e SECONDA RIGA con il tuo testo -->
+  <blockquote class="quote">
+    «PRIMA RIGA<br>
+    SECONDA RIGA»
+  </blockquote>
+
 
   <section>
     <h2>Candidati</h2>
