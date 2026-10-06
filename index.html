@@ -209,17 +209,16 @@ button:disabled{opacity:.4;cursor:default}
 
 <script>
 const COLORS=["#2E5E8C","#B8333B","#2F7D5B","#8A5A1E","#6B4C9A","#1F7F8C","#A63F7A","#5B6B2E","#C2621A","#3D4F9E","#7A3E3E","#4A7A2A"];
-const KEY="sim-ticket-cgie-v1";
+const KEY="sim-ticket-cgie-v3";
 const BOXES=[["lon","Comites Londra",18],["man","Comites Manchester",18],["sco","Comites Scozia e NI",12],["ass","Associazioni",6]];
 function defaults(){
-  const cands=["Rossi","Bianchi","Verdi","Neri","Galli","Conti"].map((n,i)=>({id:"c"+i,name:n,color:COLORS[i]}));
-  const fill=(arr,n)=>{const s=[];arr.forEach(([id,k])=>{for(let i=0;i<k;i++)s.push(id)});while(s.length<n)s.push(null);return s};
-  const pre={lon:[["c0",7],["c1",6],["c4",5]],man:[["c2",8],["c3",6],["c5",4]],sco:[["c1",5],["c3",4],["c0",3]],ass:[["c4",3],["c5",2],["c2",1]]};
+  const cands=["MIE 1","MIE 2","ACLIPD 1","ACLIPD 2","MovingForward","Mondoitaliano","Noi Fratelli","ItaliaNIS"].map((n,i)=>({id:"c"+i,name:n,color:COLORS[i]}));
   return {
     cands,
-    boxes:BOXES.map(([id,name,size])=>({id,name,size,slots:fill(pre[id],size)})),
+    boxes:BOXES.map(([id,name,size])=>({id,name,size,slots:Array(size).fill(null)})),
     tickets:[{id:"t1",members:[]},{id:"t2",members:[]}],
-    seq:10
+    seq:10,
+    cost:1
   };
 }
 let state=load()||defaults();
@@ -232,7 +231,13 @@ const cand=id=>state.cands.find(c=>c.id===id);
 const ticketOf=id=>state.tickets.find(t=>t.members.includes(id));
 const fmt=n=>Math.round(n).toLocaleString("it-IT");
 const weight=id=>state.boxes.reduce((a,b)=>a+b.slots.filter(s=>s===id).length,0);
-const initials=n=>n.trim().slice(0,2);
+const initials=n=>{
+  n=n.trim(); const w=n.split(/\s+/);
+  if(w.length>1) return (w[0][0]+w[1][0]).toUpperCase();
+  const caps=n.replace(/[^A-Z]/g,"");
+  if(caps.length>=2&&caps.length<n.length) return caps.slice(0,2);
+  return n.slice(0,2);
+};
 function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 
 /* ---------- calcolo ---------- */
