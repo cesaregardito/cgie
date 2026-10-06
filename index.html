@@ -114,6 +114,10 @@ button:disabled{opacity:.4;cursor:default}
 .costrow label{font-weight:600}
 .costrow input{width:80px}
 .costrow span{color:var(--muted)}
+.ticket .suplabel{padding:6px 10px 0;font-size:13px;font-weight:600;color:var(--muted);border-top:1.5px dashed var(--line)}
+.ticket .zone.sup{flex-direction:row;flex-wrap:wrap;min-height:58px;padding:8px 10px}
+.ticket .zone.sup .chip{width:auto;min-width:0;height:34px;padding:0 10px;font-size:14px}
+.ticket .zone.sup .chip .v{font-size:18px}
 /* results */
 .res{background:var(--sheet);border:2px solid var(--ink);border-radius:6px;padding:16px}
 .row{display:grid;grid-template-columns:28px minmax(80px,150px) 1fr 64px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
@@ -179,7 +183,7 @@ button:disabled{opacity:.4;cursor:default}
         <button type="button" id="addTicket">Nuovo ticket</button>
       </div>
     </div>
-    <p class="hint">Massimo tre candidati per ticket. Gli elettori votano sempre il proprio candidato; nei ticket da tre gli elettori del terzo danno la seconda preferenza ai due più forti, che in cambio gli cedono ciascuno un certo numero di voti (il costo d'ingresso).</p>
+    <p class="hint">Massimo tre candidati per ticket, più quanti sostenitori vuoi. Gli elettori votano sempre il proprio candidato; nei ticket da tre gli elettori del terzo danno la seconda preferenza ai due più forti, che in cambio gli cedono ciascuno un certo numero di voti (il costo d'ingresso).</p>
     <div class="costrow">
       <label for="cost">Costo d'ingresso del terzo: voti ceduti da <em>ciascuno</em> dei due più forti</label>
       <input id="cost" type="number" min="0" step="1" inputmode="numeric">
@@ -216,12 +220,13 @@ function defaults(){
   return {
     cands,
     boxes:BOXES.map(([id,name,size])=>({id,name,size,slots:Array(size).fill(null)})),
-    tickets:[{id:"t1",members:[]},{id:"t2",members:[]}],
+    tickets:[{id:"t1",members:[],supporters:[]},{id:"t2",members:[],supporters:[]}],
     seq:10,
     cost:1
   };
 }
 let state=load()||defaults();
+state.tickets.forEach(t=>{if(!t.supporters)t.supporters=[]});
 let selected=null;
 
 function load(){try{const s=localStorage.getItem(KEY);return s?JSON.parse(s):null}catch(e){return null}}
@@ -229,6 +234,8 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
 const $=s=>document.querySelector(s);
 const cand=id=>state.cands.find(c=>c.id===id);
 const ticketOf=id=>state.tickets.find(t=>t.members.includes(id));
+const supportOf=id=>state.tickets.find(t=>(t.supporters||[]).includes(id));
+const placed=id=>ticketOf(id)||supportOf(id);
 const fmt=n=>Math.round(n).toLocaleString("it-IT");
 const weight=id=>state.boxes.reduce((a,b)=>a+b.slots.filter(s=>s===id).length,0);
 const initials=n=>{
@@ -261,17 +268,28 @@ function allocate(ws){
 }
 function compute(){
   const out=[]; let lost=0;
-  const inTicket=new Set();
+  const done=new Set(); const gifts={};
   state.tickets.forEach((t,ti)=>{
     const ms=t.members.map(cand).filter(Boolean);
+    const sups=t.supporters.map(cand).filter(Boolean);
     const ws=ms.map(c=>weight(c.id));
     const fin=allocate(ws);
     if(ms.length===1) lost+=ws[0];
-    ms.forEach((c,i)=>{inTicket.add(c.id);out.push({c,own:ws[i],fin:fin[i],ticket:ms.length>1?ti+1:null})});
+    // regali: seconde preferenze dei sostenitori, divise in parti uguali tra i membri del ticket
+    const G=sups.reduce((a,c)=>a+weight(c.id),0);
+    const add=ms.map(()=>0);
+    if(ms.length){
+      const base=Math.floor(G/ms.length); let r=G-base*ms.length;
+      const ord=ms.map((c,i)=>i).sort((x,y)=>fin[y]-fin[x]||x-y);
+      ord.forEach(i=>{add[i]=base+(r>0?1:0); if(r>0)r--});
+    } else lost+=G;
+    gifts[t.id]=G;
+    ms.forEach((c,i)=>{done.add(c.id);out.push({c,own:ws[i],fin:fin[i]+add[i],gift:add[i],ticket:ti+1,solo:ms.length===1})});
+    sups.forEach(c=>{done.add(c.id);const w=weight(c.id);out.push({c,own:w,fin:w,gift:0,ticket:ti+1,sup:true})});
   });
-  state.cands.forEach(c=>{if(!inTicket.has(c.id)){const w=weight(c.id);lost+=w;out.push({c,own:w,fin:w,ticket:null})}});
+  state.cands.forEach(c=>{if(!done.has(c.id)){const w=weight(c.id);lost+=w;out.push({c,own:w,fin:w,gift:0,ticket:null})}});
   out.sort((a,b)=>b.fin-a.fin||b.own-a.own);
-  return {rows:out,lost};
+  return {rows:out,lost,gifts};
 }
 
 /* ---------- render ---------- */
@@ -320,14 +338,14 @@ function renderBoxes(){
 }
 var render=function(){
   const pool=$("#pool"); pool.innerHTML="";
-  const free=state.cands.filter(c=>!ticketOf(c.id));
+  const free=state.cands.filter(c=>!placed(c.id));
   const maxV=Math.max(1,...state.cands.map(c=>weight(c.id)));
   free.forEach(c=>{const el=chipEl(c);el.style.width=`calc(110px + ${Math.round(weight(c.id)/maxV*140)}px)`;pool.appendChild(el)});
   if(!state.cands.length) pool.innerHTML=`<span class="empty">Aggiungi un candidato per iniziare.</span>`;
   else if(!free.length) pool.innerHTML=`<span class="empty">Tutti i candidati sono in un ticket. Trascinali qui per toglierli.</span>`;
 
   renderBoxes();
-  const {rows,lost}=compute();
+  const {rows,lost,gifts}=compute();
   const finById=Object.fromEntries(rows.map(r=>[r.c.id,r.fin]));
 
   const tw=$("#tickets"); tw.innerHTML="";
@@ -340,10 +358,19 @@ var render=function(){
     ms.forEach(c=>z.appendChild(chipEl(c)));
     for(let i=ms.length;i<3;i++){const s=document.createElement("div");s.className="slot";z.appendChild(s)}
     box.appendChild(z);
+    const sl=document.createElement("div"); sl.className="suplabel";
+    sl.textContent="Sostenitori (regalano la 2ª preferenza)";
+    box.appendChild(sl);
+    const sz=document.createElement("div"); sz.className="zone sup"; sz.dataset.zone=t.id+":sup";
+    const sups=t.supporters.map(cand).filter(Boolean);
+    sups.forEach(c=>sz.appendChild(chipEl(c)));
+    if(!sups.length) sz.innerHTML=`<span class="empty">Trascina qui i candidati minori</span>`;
+    box.appendChild(sz);
     const f=document.createElement("div"); f.className="tf";
     if(ms.length===0) f.textContent="Vuoto";
     else if(ms.length===1) f.innerHTML=`Da solo: la seconda preferenza dei suoi <b>${fmt(W)}</b> elettori va persa`;
     else f.innerHTML=`<b>${fmt(W)}</b> elettori, <b>${fmt(2*W)}</b> preferenze: `+ms.map(c=>`${escapeHtml(c.name)} <b>${fmt(finById[c.id])}</b>`).join(", ");
+    if(gifts[t.id]>0) f.innerHTML+=ms.length?`<br>Regali dai sostenitori: <b>+${fmt(gifts[t.id])}</b>, divisi tra i membri`:`<br>Senza membri i <b>${fmt(gifts[t.id])}</b> regali vanno persi`;
     box.appendChild(f);
     tw.appendChild(box);
   });
@@ -369,7 +396,7 @@ var render=function(){
     row.className=cls;
     row.style.setProperty("--c",r.c.color);
     const ownP=r.own/top*100, finP=r.fin/top*100;
-    const sub=r.ticket?`ticket ${r.ticket}, +${fmt(r.fin-r.own)} ricevuti`:"da solo";
+    const sub=r.sup?`sostiene il ticket ${r.ticket}`:r.ticket?(r.solo&&!r.gift?`ticket ${r.ticket}, da solo`:`ticket ${r.ticket}, +${fmt(r.fin-r.own)} ricevuti`+(r.gift?` (di cui ${fmt(r.gift)} ${r.gift===1?"regalato":"regalati"})`:"")):"da solo";
     row.innerHTML=`<div class="pos">${i+1}</div><div class="nm"></div>
       <div class="bar"><i class="own" style="width:${Math.min(ownP,finP)}%"></i>${r.fin>r.own?`<i class="rec" style="left:${ownP}%;width:${finP-ownP}%"></i>`:""}</div>
       <div class="tot">${fmt(r.fin)}</div>`;
@@ -390,14 +417,18 @@ var render=function(){
 }
 
 /* ---------- azioni ---------- */
+function unplace(id){
+  state.tickets.forEach(t=>{t.members=t.members.filter(m=>m!==id);t.supporters=t.supporters.filter(m=>m!==id)});
+}
 function moveTo(id,zone){
-  const cur=ticketOf(id);
-  if(zone==="pool"){ if(cur) cur.members=cur.members.filter(m=>m!==id); return true }
-  const t=state.tickets.find(t=>t.id===zone); if(!t) return false;
-  if(cur===t) return true;
+  if(zone==="pool"){unplace(id);return true}
+  const sup=zone.endsWith(":sup");
+  const t=state.tickets.find(t=>t.id===zone.replace(":sup",""));
+  if(!t) return false;
+  if(sup){ if(t.supporters.includes(id)) return true; unplace(id); t.supporters.push(id); return true }
+  if(t.members.includes(id)) return true;
   if(t.members.length>=3) return false;
-  if(cur) cur.members=cur.members.filter(m=>m!==id);
-  t.members.push(id); return true;
+  unplace(id); t.members.push(id); return true;
 }
 function select(id){
   selected=id;
@@ -425,13 +456,13 @@ $("#editor").addEventListener("input",e=>{
   render();
 });
 $("#delBtn").onclick=()=>{
-  const id=selected; const t=ticketOf(id); if(t) t.members=t.members.filter(m=>m!==id);
+  const id=selected; unplace(id);
   state.boxes.forEach(b=>b.slots=b.slots.map(s=>s===id?null:s));
   state.cands=state.cands.filter(c=>c.id!==id); select(null);
 };
 $("#closeEd").onclick=()=>select(null);
-$("#addTicket").onclick=()=>{state.tickets.push({id:"t"+(state.seq++),members:[]});render()};
-$("#resetBtn").onclick=()=>{state.tickets.forEach(t=>t.members=[]);render()};
+$("#addTicket").onclick=()=>{state.tickets.push({id:"t"+(state.seq++),members:[],supporters:[]});render()};
+$("#resetBtn").onclick=()=>{state.tickets.forEach(t=>{t.members=[];t.supporters=[]});render()};
 $("#clearSeats").onclick=()=>{state.boxes.forEach(b=>b.slots=b.slots.map(()=>null));render()};
 $("#tickets").addEventListener("click",e=>{
   const d=e.target.closest("[data-del]"); if(!d) return;
